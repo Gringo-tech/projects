@@ -1,0 +1,8 @@
+flip_coin=function(coin){
+  if (coin==1){
+    print("you won!")
+  }else{
+    print("you lost.")
+  }
+}
+recall=flip_coin(coin=sample(0:1,1))
