@@ -1,0 +1,13 @@
+N=1000
+deg_of_freedom=4
+Z_squared=0
+for(i in 1:deg_of_freedom){
+  Z=rnorm(N,0,1)
+  Z_squared=Z_squared+Z^2
+  chi_squared=Z_squared
+}
+expected_value=mean(chi_squared)
+print(expected_value)
+plot(density(chi_squared))
+
+
