@@ -84,7 +84,7 @@ y_pred=knn.predict(X_new)
 print("predictions  : {}".format(y_pred))
 
 
-#tata approva             
+         
 
 
 
