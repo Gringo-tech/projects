@@ -1,11 +1,17 @@
-import sys
-print(sys.executable)
+#import sys
+#print(sys.executable)
 import streamlit as st
 import requests
+import folium
+import math as mt
+from streamlit_folium import st_folium
 
 
+#cd "C:\Users\ANDREA ERBA\OneDrive\Desktop"
+#& "C:\Users\ANDREA ERBA\anaconda3\python.exe" -m streamlit run "app.py"
+
+#NOMINATIM API REQUEST
 #############################################################################################
-#NOMINATIM REQUEST API
 def geolocalization (x) : 
     #nominatim request : url + dictionary of requests (query) 
     req =requests.get(
@@ -31,7 +37,34 @@ def geolocalization (x) :
 
 #############################################################################################
 
+#OSRM API REQUEST 
+#############################################################################################
 
+def route (start_point_coordinates, end_point_coordinates) : 
+    coordinates=(
+            f"{start_point_coordinates[1]},{start_point_coordinates[0]};"
+            f"{end_point_coordinates[1]},{end_point_coordinates[0]}")
+    req = requests.get(
+    #OSRM wants inverted coordinates lon-lat 
+        
+    #url
+    f"http://router.project-osrm.org/route/v1/driving/{coordinates}",
+        
+    params = {
+        "overview": "full",       # Add overview geometry
+        "geometries": "geojson",  # coordinates in list form [lon, lat]
+        "alternatives": "true"},   # search for alternative routes   
+        
+    headers={"User-Agent": "swiss-traffic-safety-andrea-app"}, # identification
+    timeout=15)
+    
+    results = req.json()
+    return(results)
+##############################################################################################
+
+
+#BODY
+##############################################################################################
 st.title("Route Map : insert starting and ending point")# title
 
 
@@ -69,6 +102,49 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        st.write(f'coordinates of start point are :  {start_point_coordinates}')
        st.write(f'coordinates of end point are :  {end_point_coordinates}')
        
+       route_coordinates=route(start_point_coordinates ,end_point_coordinates)
+       #recall route function, store the API answer here
+       #st.write(route_coordinates)
+       
+       
+       route_coords_list = route_coordinates["routes"][0]["geometry"]["coordinates"]
+       #extraction of coordinates, since the answer of OSRM is an annidate dictionary
+       # we shall visualize it on stramlit to figure out how to access to what we need 
+       #st.write(route_coords)
+       
+       
+#VISUALIZE ROUTE 
+################################################################################
+       if route_coordinates.get("code") == "Ok":
+       # API request was succesful if the answer starts with "code" : "Ok"
+          
+          #inversion of elements in the list since folium requires [lat, lon], menawhile
+          #OSRM provide [lon, lat]
+          route_points = [[lat, lon] for lon, lat in route_coords_list]
 
+         #Center the map Switzerland
+          m = folium.Map(location=[46.8, 8.2], zoom_start=8)
+
+         #Visualize route
+          folium.PolyLine(route_points, color="blue", weight=5, opacity=0.8).add_to(m)
+
+         #Marker Start point and End point
+          folium.Marker(route_points[0], tooltip="Start", icon=folium.Icon(color="green")).add_to(m)
+          folium.Marker(route_points[-1], tooltip="End", icon=folium.Icon(color="red")).add_to(m)
+
+         #Zoom on the route
+          m.fit_bounds(route_points)
+
+         #Visualize on streamlit
+          st_folium(m, width=700, height=500, returned_objects=[])
+       else : 
+           st.error("Error : No route has been found")
+      
+    
+    
+    
+
+       
+       
 
 
