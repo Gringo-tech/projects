@@ -2,7 +2,7 @@ import sys
 print(sys.executable)
 import streamlit as st
 import requests
-import folium
+import folium 
 import math 
 from streamlit_folium import st_folium
 import time
