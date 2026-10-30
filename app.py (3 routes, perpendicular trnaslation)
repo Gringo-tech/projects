@@ -2,7 +2,7 @@ import sys
 print(sys.executable)
 import streamlit as st
 import requests
-import folium 
+import folium
 import math 
 from streamlit_folium import st_folium
 import time
@@ -69,9 +69,9 @@ def route (start_point_coordinates, end_point_coordinates,mid_point=None) :
 ##############################################################################################
 
 
-#MID POINT TRANSALTION 90° RESPECT THE MAIN ROUTE
+#MID POINT TRANSALTION 90° RESPECT THE MAIN ROUTE 
 ##############################################################################################
-def offset_midpoint(route_coords_list, distance_km=40):
+def offset_midpoint(route_coords_list, distance_km):
     R=6371000  # Earth radius in meters
 
     # Select midpoint and nearby points to estimate direction
@@ -163,8 +163,8 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        start_point_coordinates = [float(dict_start_point["lat"]),float(dict_start_point["lon"])]
        #extracting lat and long coordinates and stored as float in a list
        
-       st.write(f'coordinates of start point are :  {start_point_coordinates}')
-       st.write(f'coordinates of end point are :  {end_point_coordinates}')
+       #st.write(f'coordinates of start point are :  {start_point_coordinates}')
+       #st.write(f'coordinates of end point are :  {end_point_coordinates}')
        
        route_coordinates=route(start_point_coordinates ,end_point_coordinates)
        #recall route function, store the API answer here
@@ -174,17 +174,24 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        route_coords_list = route_coordinates["routes"][0]["geometry"]["coordinates"]
        #extraction of coordinates, since the answer of OSRM is an annidate dictionary
        # we shall visualize it on stramlit to figure out how to access to what we need 
-       #st.write(route_coords)
+       #st.write(route_coordinates)
        
        
-       #MID POINT GENERATION
-       ################################################################################
+       distance_main_route_km = route_coordinates["routes"][0]["legs"][0]["distance"] / 1000
+       #extraction of distance between start and end point of main route in meters, then converted in km by dividing for 1000
+       #st.write(distance_main_route)
+       
+       
+       
+       
+#MID POINT GENERATION
+################################################################################
        
        mid_point_mod_1=[]
        mid_point_mod_2=[]
        mid_point=route_coords_list[len(route_coords_list)//2]
        
-       mid_point_mod = offset_midpoint(route_coords_list)
+       mid_point_mod = offset_midpoint(route_coords_list,distance_km=distance_main_route_km * 0.4)
        mid_point_mod_1=[mid_point_mod[0]]
        mid_point_mod_2=[mid_point_mod[1]]
        
