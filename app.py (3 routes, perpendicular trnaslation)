@@ -127,6 +127,24 @@ def offset_midpoint(route_coords_list, distance_km):
     return waypoints
 ##############################################################################################
 
+#VISUALIZATION
+##############################################################################################
+def visualization(routes_to_show):
+    colors = ["blue", "red", "green"]
+    m = folium.Map(location=[46.8, 8.2], zoom_start=8)
+
+    all_points = []
+    for i, coords in routes_to_show:
+        points = [[lat, lon] for lon, lat in coords]   # inversion of lat lon => lon lat
+        folium.PolyLine(points, color=colors[i], weight=5, opacity=0.8).add_to(m)
+        all_points.extend(points)
+
+    if all_points:
+        m.fit_bounds(all_points)
+
+    st_folium(m, use_container_width=True, height=500, returned_objects=[])
+############################################################################################
+
 #BODY
 ##############################################################################################
 st.title("Route Map : insert starting and ending point")# title
@@ -136,7 +154,7 @@ start_point=st.text_input("starting point") #input of statrting point (str)
 end_point = st.text_input("ending point") #input of ending point (str)
 list_point = [start_point,end_point]
 
-left,center,right=st.columns([1,1,1])# set up columns (remain in the whole app)
+left,center,right=st.columns([1,1,1])# set up columns 
 
 with center : 
     done = st.button("done",use_container_width=True)#assign button "done" a central poisition
@@ -191,57 +209,44 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        mid_point_mod_2=[]
        mid_point=route_coords_list[len(route_coords_list)//2]
        
-       mid_point_mod = offset_midpoint(route_coords_list,distance_km=distance_main_route_km * 0.4)
+       mid_point_mod = offset_midpoint(route_coords_list,distance_km=distance_main_route_km * 0.28)
        mid_point_mod_1=[mid_point_mod[0]]
        mid_point_mod_2=[mid_point_mod[1]]
        
     #GENERATION OF 2 ALTERNATIVE ROUTES       
-    route_coordinates_1=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_1)
-    route_coordinates_2=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_2)
-    route_coords_list_1 = route_coordinates_1["routes"][0]["geometry"]["coordinates"]
-    route_coords_list_2 = route_coordinates_2["routes"][0]["geometry"]["coordinates"]
+       route_coordinates_1=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_1)
+       route_coordinates_2=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_2)
+       route_coords_list_1 = route_coordinates_1["routes"][0]["geometry"]["coordinates"]
+       route_coords_list_2 = route_coordinates_2["routes"][0]["geometry"]["coordinates"]
+       
+       #save routes here, streamlit rerun every time button is pressed
+       st.session_state["routes"] = [route_coords_list, route_coords_list_1,route_coords_list_2] 
 
         
        
-#VISUALIZE ROUTE 
+#VISUALIZE ROUTES BUTTONS
 ################################################################################
-    if route_coordinates.get("code") == "Ok":
-       # API request was succesful if the answer starts with "code" : "Ok"
-          
-          #inversion of elements in the list since folium requires [lat, lon], menawhile
-          #OSRM provide [lon, lat]
-          route_points = [[lat, lon] for lon, lat in route_coords_list]
-          route_points_1 = [[lat, lon] for lon, lat in route_coords_list_1]
-          route_points_2 = [[lat, lon] for lon, lat in route_coords_list_2]
+colors = ["blue", "red", "green"]
 
-         #Center the map Switzerland
-          m = folium.Map(location=[46.8, 8.2], zoom_start=8)
+if "routes" in st.session_state:
+    st.header("Routes Visualization")
+    left, center, right = st.columns(3)
 
-         #Visualize route
-          folium.PolyLine(route_points, color="blue", weight=5, opacity=0.5).add_to(m)
-          folium.PolyLine(route_points_1, color="red", weight=5, opacity=0.5).add_to(m)
-          folium.PolyLine(route_points_2, color="green", weight=5, opacity=0.5).add_to(m)
+    with left:
+        show_main = st.checkbox("Main route", value=True)
+    with center:
+        show_alt1 = st.checkbox("Alternative 1")
+    with right:
+        show_alt2 = st.checkbox("Alternative 2")
 
-         #Marker Start point and End point
-          folium.Marker(route_points[0], tooltip="Start", icon=folium.Icon(color="green")).add_to(m)
-          folium.Marker(route_points[-1], tooltip="End", icon=folium.Icon(color="red")).add_to(m)
-          
-          folium.Marker(route_points_1[0], tooltip="Start", icon=folium.Icon(color="green")).add_to(m)
-          folium.Marker(route_points_1[-1], tooltip="End", icon=folium.Icon(color="red")).add_to(m)
-          
-          folium.Marker(route_points_2[0], tooltip="Start", icon=folium.Icon(color="green")).add_to(m)
-          folium.Marker(route_points_2[-1], tooltip="End", icon=folium.Icon(color="red")).add_to(m)
+    flags = [show_main, show_alt1, show_alt2]
 
-         #Zoom on the route
-          m.fit_bounds(route_points)
+    #Fix colour on the alternative (for example main is always blue)
+    routes_to_show = [
+        (i, r) for i, (r, show) in enumerate(zip(st.session_state["routes"], flags)) if show
+    ]
 
-         #Visualize on streamlit
-          st_folium(m, width=700, height=500, returned_objects=[])
-    else : 
-           st.error("Error : No route has been found")
-           
-
-    
+    visualization(routes_to_show)
     
     
 
