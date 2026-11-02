@@ -1,11 +1,16 @@
-import sys
-print(sys.executable)
+#import sys
+#print(sys.executable)
 import streamlit as st
 import requests
 import folium
 import math 
 from streamlit_folium import st_folium
 import time
+import shapely
+from shapely.geometry import Polygon, Point
+from shapely.prepared import prep
+import pandas as pd
+import numpy as np
 
 
 #cd "C:\Users\andre\OneDrive\Desktop"
@@ -36,14 +41,26 @@ def geolocalization(x):
 #############################################################################################
 
 def route (start_point_coordinates, end_point_coordinates,mid_point=None) : 
-    if mid_point is not None : 
+    
+    if mid_point is not None :  #in the successive call we have a mid point, and we can ask OSRM to find a route that even from that mid point
+                                #NOTE : the mid point is exactly the transalted point calculated in the function below
+                                
+       # we want to create a list that contains : [start piint coordinates, mid point coordinates , end point coordinates] and ask OSRM to provide us a route that pass from these 3 points
+       # 1) list of start point coordinates 
        alt_coords_list = [f"{start_point_coordinates[1]},{start_point_coordinates[0]}"]
+       
        for j in mid_point : 
            alt_coords_list.append(f"{j[0]},{j[1]}")
+           # 2) we append at the initial list the coordinates of the mid point 
+           
        alt_coords_list.append(f"{end_point_coordinates[1]},{end_point_coordinates[0]}")
+       # 3) in coinclusion we append the coordinates of the end point
+       # now we have a list 
+       
        coordinates = ";".join(alt_coords_list)
        
-    else : 
+       
+    else : #in the first call the route calculated is the main one, since the mid point is estracted from the main route
         coordinates=(
                 f"{start_point_coordinates[1]},{start_point_coordinates[0]};"
                 f"{end_point_coordinates[1]},{end_point_coordinates[0]}")
@@ -58,9 +75,12 @@ def route (start_point_coordinates, end_point_coordinates,mid_point=None) :
     params = {
         "overview": "full",       # Add overview geometry
         "geometries": "geojson",  # coordinates in list form [lon, lat]
-        "alternatives": "true"
-        },   # search for alternative routes   
-        
+        #"alternatives": "true"
+        },                        
+    #After many tests, we came at the conclusion that even if we specify alternatives as true, the API will hardly provide us with alternative 
+    #routes by defualt, this is why we had to implemnt the transaltion function in order to force the API to give us back an alternative route 
+    #that pass from the translated mid point.    
+   
     headers={"User-Agent": "swiss-traffic-safety-andrea-app"}, # identification
     timeout=15)
     
@@ -81,7 +101,7 @@ def offset_midpoint(route_coords_list, distance_km):
     p1 = route_coords_list[max(0, idx - 5)]
     p2 = route_coords_list[min(n - 1, idx + 5)]
 
-    # OSRM coordinates are [lon, lat]
+    # OSRM coordinates are [lon, lat], we need to invert them 
     lon0, lat0 = route_coords_list[idx]
     lon1, lat1 = p1
     lon2, lat2 = p2
@@ -89,6 +109,7 @@ def offset_midpoint(route_coords_list, distance_km):
     # Convert nearby coordinates to local metric coordinates
     lat0_rad = math.radians(lat0)
 
+    #Calculation of translataed points
     x1 = R * math.cos(lat0_rad) * math.radians(lon1 - lon0)
     y1 = R * math.radians(lat1 - lat0)
 
@@ -99,10 +120,8 @@ def offset_midpoint(route_coords_list, distance_km):
     dx = x2 - x1
     dy = y2 - y1
 
+    #calcualtion of the effective vector's length
     length = math.hypot(dx, dy)
-
-    if length == 0:
-        raise ValueError("Cannot determine route direction")
 
     # Unit vector perpendicular to the route
     perp_x = -dy / length
@@ -113,7 +132,8 @@ def offset_midpoint(route_coords_list, distance_km):
 
     # Two alternative waypoints
     waypoints = []
-
+    
+    #creation of transalted points in opposite direction with respect to the main route
     for sign in (1, -1):
         x = sign * d * perp_x
         y = sign * d * perp_y
@@ -123,12 +143,15 @@ def offset_midpoint(route_coords_list, distance_km):
         )
         lat = lat0 + math.degrees(y / R)
 
+        #translated poiints are stored in a list 
         waypoints.append([lon, lat])
+        
+    #the function return a list of two transalted points [[lon,lat],[lon,lat]]=> pay attention, it is an annidated list (2 lists in a list)
     return waypoints
 ##############################################################################################
 
-#VISUALIZATION
-##############################################################################################
+#VISUALIZATION FUNCTION
+############################################################################################
 def visualization(routes_to_show):
     colors = ["blue", "red", "green"]
     m = folium.Map(location=[46.8, 8.2], zoom_start=8)
@@ -143,10 +166,53 @@ def visualization(routes_to_show):
         m.fit_bounds(all_points)
 
     st_folium(m, use_container_width=True, height=500, returned_objects=[])
+##########################################################################################
+
+#FIND ROUTES' POINTS IN SWISSTZERLAND AND SEPARE THEM FROM POINT OUTSIDE
+##########################################################################################
+def split_route(coords):
+#function that receives in input one route (list of points)   
+    
+    #define two lists, one for inside points and one for outside points
+    inside = []
+    outside = []
+    
+    #with the for loop go through every point containd in the route 
+    for lon, lat in coords:
+        
+        #if the point is inside the polygon => it is in switzerland, append it to internal points list
+        if ch.contains(Point(lon, lat)):
+            inside.append([lon, lat])
+            
+        #if it is outside => append to outside points list
+        else:
+            outside.append([lon, lat])
+            
+    #return both lists      
+    return [inside, outside]
+###########################################################################################
+
+#FIND INCIDENTS ON THE ROUTE GIVE THE ROUTE
+#NOTE : WE USE ONLY SWISS'S POINTS OF THE ROUTE (INSIDE)
+############################################################################################
+def incidents_finder(inside_points,incident_points) : 
+    ns_buffer = 0.000449/2
+    eo_buffer = 0.000655/2
+    incident_on_route=0
+    incidents_arr = np.array(incident_points)
+   
+    for i in inside_points: 
+       box = ((abs(incidents_arr[:,0]-i[0])<=eo_buffer) &
+              (abs(incidents_arr[:,1]-i[1])<=ns_buffer))
+       
+       if box.any():
+           incident_on_route = incident_on_route + 1
+        
+    return(incident_on_route)
 ############################################################################################
 
 #BODY
-##############################################################################################
+############################################################################################
 st.title("Route Map : insert starting and ending point")# title
 
 
@@ -198,9 +264,7 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        distance_main_route_km = route_coordinates["routes"][0]["legs"][0]["distance"] / 1000
        #extraction of distance between start and end point of main route in meters, then converted in km by dividing for 1000
        #st.write(distance_main_route)
-       
-       
-       
+             
        
 #MID POINT GENERATION
 ################################################################################
@@ -219,11 +283,76 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        route_coords_list_1 = route_coordinates_1["routes"][0]["geometry"]["coordinates"]
        route_coords_list_2 = route_coordinates_2["routes"][0]["geometry"]["coordinates"]
        
-       #save routes here, streamlit rerun every time button is pressed
+       #save routes here, streamlit rerun every time a button is pressed, thereby if we not save them somewhere, streamlit will forget the routes 
        st.session_state["routes"] = [route_coords_list, route_coords_list_1,route_coords_list_2] 
 
+
+#################################################################################
+#define a polygon which is an approximation of switzerland, if a point is outside of the polygon => not in switzerland 
+    switzerland = Polygon([
+                (5.95, 46.13),   # Geneva ovest
+                (6.80, 47.35),   # Giura nord-ovest
+                (7.60, 47.60),   # Basel
+                (8.60, 47.80),   # Schaffausen
+                (9.55, 47.55),   # Costance lake
+                (9.60, 47.05),   # Liechtenstein/Grigioni
+                (10.50, 46.85),  # Engadin est
+                (10.10, 46.25),  # Poschiavo
+                (9.00, 45.82),   # Tessin sud (Chiasso)
+                (8.40, 46.00),   # Tessin ovest
+                (7.00, 45.90),   # Vallese sud-ovest
+                                ])
+
+    ch = prep(switzerland) 
+#make it faster, run the polygon before calling the function that divides swiss points from foreigner points
+
+    inside_outside = list(map(split_route,st.session_state["routes"]))
+#create a list of lists that has the following structure : 
+#[[points inside swiss for main route , points outside for main route],[points inside swiss for alt 1 , points outside for alt 1 ],[points inside for alt 2 , points outside for alt 2 ]]
+#now we have a list that contains, for each route in a fixed order (main , alt 1 , alt2), the respective lists with inside and outside points
+
+#extract inside and outside points for each route (main , alt 1 , alt 2)
+    inside_main= inside_outside[0][0]
+#outside_main=inside_outside[0][1]
+
+    inside_alt_1=inside_outside[1][0]
+#outside_alt_1 =inside_outside[1][1]
+
+    inside_alt_2= inside_outside[2][0]
+#outside_alt_2 = inside_outside[2][1]
+
+    inside_list = [ inside_main,inside_alt_1,inside_alt_2]
+
+#import data frame downloaded from : https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.unfaelle-personenschaeden_alle/items/unfaelle-personenschaeden_alle?.asset=asset-unfaelle-personenschaeden_alle_4326-json-zip
+#NOTE : data frame contains only information about incidentes with injuries to persons 
+    df = pd.read_json(r"C:\Users\andre\OneDrive\Desktop\dati\data.json")
+
+#extract all the incidents locations in format [[lat, lon],[lat,lon],...[lat,lon]]
+    list_of_coords_incidents = []
+    for i in range(0,len(df["features"]),500) : 
+            list_of_coords_incidents.append(df["features"][i]["geometry"]["coordinates"])
+
         
-       
+    incidents_on_routes = []
+    for punti in [inside_main, inside_alt_1, inside_alt_2]:
+                risultato = incidents_finder(punti, list_of_coords_incidents)
+                incidents_on_routes.append(risultato)
+                
+    st.write(incidents_on_routes)
+    
+    risky_index=[]
+    for i in range(0,3) : 
+        risky_index.append(incidents_on_routes[i]/len(inside_list[i])*100)
+    
+    st.session_state["index"]= risky_index
+#In swiss, approximately : 
+# A differnce of 50m Nord-Sud is equal to a difference of 0,000449° of latitude 
+# A differnce of 50m Est-Ovest is equal to a difference of 0,000655° of longitude
+
+#Now we can set-up the buffer. The idea is to select every incident that happens within a radius of 50m from the route point. 
+#To do that we just need to confront the points of our routes in switzerland (inside) with the points contained in the list of incidents by applying the buffer of 50 m
+#If an incident is spotted, it will be counted and addedd at the incident close to that route
+
 #VISUALIZE ROUTES BUTTONS
 ################################################################################
 colors = ["blue", "red", "green"]
@@ -241,14 +370,19 @@ if "routes" in st.session_state:
 
     flags = [show_main, show_alt1, show_alt2]
 
-    #Fix colour on the alternative (for example main is always blue)
+    #Fix colour on the same alternative (for example main is always blue)
     routes_to_show = [
         (i, r) for i, (r, show) in enumerate(zip(st.session_state["routes"], flags)) if show
     ]
 
     visualization(routes_to_show)
-    
-    
 
-       
-       
+
+
+st.write(f"the main route has a risky index of {st.session_state['index'][0]}%")
+st.write(f"the 1° alternative has a risky index of {st.session_state['index'][1]}%")  
+st.write(f"the 2° alternative has a risky index of {st.session_state['index'][2]}%") 
+ 
+
+ 
+    
