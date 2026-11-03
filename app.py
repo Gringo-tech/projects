@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 #cd "C:\Users\andre\OneDrive\Desktop"
 #& "C:\Users\andre\anaconda3\python.exe" -m streamlit run "app.py"
 
-#NOMINATIM API REQUEST
+#NOMINATIM API HTTPS GET REQUEST
 #############################################################################################
 def geolocalization(x):
     req = requests.get(
@@ -28,7 +28,7 @@ def geolocalization(x):
             "countrycodes": "ch",
             "limit": 2,
         },
-        headers={"User-Agent": "swiss-traffic-safety-andrea-app (tuo_indirizzo@email.com)"},
+        headers={"User-Agent": "swiss-traffic-safety-andrea-app (andreaerba0046@gmail.com)"},
         timeout=10,
     )
     if req.status_code != 200:
@@ -38,55 +38,27 @@ def geolocalization(x):
 
 #############################################################################################
 
-#OSRM API REQUEST 
+#OSRM API HTTP GET REQUEST 
 #############################################################################################
 
-def route (start_point_coordinates, end_point_coordinates,mid_point=None) : 
-    
-    if mid_point is not None :  #in the successive call we have a mid point, and we can ask OSRM to find a route that even from that mid point
-                                #NOTE : the mid point is exactly the transalted point calculated in the function below
-                                
-       # we want to create a list that contains : [start piint coordinates, mid point coordinates , end point coordinates] and ask OSRM to provide us a route that pass from these 3 points
-       # 1) list of start point coordinates 
-       alt_coords_list = [f"{start_point_coordinates[1]},{start_point_coordinates[0]}"]
-       
-       for j in mid_point : 
-           alt_coords_list.append(f"{j[0]},{j[1]}")
-           # 2) we append at the initial list the coordinates of the mid point 
-           
-       alt_coords_list.append(f"{end_point_coordinates[1]},{end_point_coordinates[0]}")
-       # 3) in coinclusion we append the coordinates of the end point
-       # now we have a list 
-       
-       coordinates = ";".join(alt_coords_list)
-       
-       
-    else : #in the first call the route calculated is the main one, since the mid point is estracted from the main route
-        coordinates=(
-                f"{start_point_coordinates[1]},{start_point_coordinates[0]};"
-                f"{end_point_coordinates[1]},{end_point_coordinates[0]}")
-        
-    
+def route(start_point_coordinates, end_point_coordinates, mid_point=None):
+    # OSRM wants "lon,lat"; start/end are [lat, lon], mid_point is [lon, lat], since mid point is calcualted by taking the mid point from the first OSRM call
+    points = [f"{start_point_coordinates[1]},{start_point_coordinates[0]}"]
+
+    if mid_point is not None:
+        points.append(f"{mid_point[0]},{mid_point[1]}")
+    #if there is mid point, append and search for route that pass from it (this is an alternative route)   
+
+    points.append(f"{end_point_coordinates[1]},{end_point_coordinates[0]}")
+    coordinates = ";".join(points)
+
     req = requests.get(
-    #OSRM wants inverted coordinates lon-lat 
-        
-    #url
-    f"http://router.project-osrm.org/route/v1/driving/{coordinates}",
-        
-    params = {
-        "overview": "full",       # Add overview geometry
-        "geometries": "geojson",  # coordinates in list form [lon, lat]
-        #"alternatives": "true"
-        },                        
-    #After many tests, we came at the conclusion that even if we specify alternatives as true, the API will hardly provide us with alternative 
-    #routes by defualt, this is why we had to implemnt the transaltion function in order to force the API to give us back an alternative route 
-    #that pass from the translated mid point.    
-   
-    headers={"User-Agent": "swiss-traffic-safety-andrea-app"}, # identification
-    timeout=15)
-    
-    results = req.json()
-    return(results)
+        f"https://router.project-osrm.org/route/v1/driving/{coordinates}",
+        params={"overview": "full", "geometries": "geojson"},
+        headers={"User-Agent": "swiss-traffic-safety-andrea-app"},
+        timeout=15,
+    )
+    return req.json()
 ##############################################################################################
 
 
@@ -241,10 +213,20 @@ def route_points_near_incidents_finder(inside_points,incident_points) :
 ############################################################################################
 def incidents_on_route (list_of_coords_incidents,tracker):
     incident_on_route=[]
+    #create an empty list that will be then fulfilled 
+    
     for i in range(0,len(list_of_coords_incidents)) : 
         if tracker[i]==True : 
             incident_on_route.append( list_of_coords_incidents[i])
+    #with a for loop we can go through all points in the list of incidents
+    #NOTE : the list of incidents contains all incidents in switzerland, but since we are interested only to the incidents that are near our routes, we have to filter with the tracker
+    #The purpose of the tracker is defined in the funciton above. 
+    #since the tracker has same lenghth of the list of coords incidents, we can filter for incidents that are close to that specific route. 
+    #If the value of the tracker in such position is true, it means that the corresponding incident in the incident list is close to the route, therefore counted.
+    #NOTE : tracker is a list of array, the list contains 3 array of booleans, one for each route.
+    
     return(incident_on_route)
+    #the function return an integer, which is the number of incidents that happend in the vicinity of a specific route.
 ###########################################################################################    
 
 #FUNCTION THAT COUNT INCIDENT WITH SEVERE INJURIES FOR INCIDENTES ON EACH ROUTE
@@ -252,14 +234,23 @@ def incidents_on_route (list_of_coords_incidents,tracker):
 def injuries_counter (tracker,all_incidents_features) :
     counter_severe=0 
     counter_non_severe=0
+    #initialize lists that will then be filled up
+    
     for i in range(0,len(all_incidents_features)):
         if tracker[i]==True : 
+    #If tracker is true, as said before, it means that in the list of all incidents in the same position, there is an incident that is on this specific route
+            
             if all_incidents_features[i]["properties"]["AccidentSeverityCategory_en"]=="Accident with severe injuries" :
+            #The dataset is structured in this way, every incident has a feature that represent sever injuries, if such condition is met, the incident lead to sever injuries, therefore counted.
+            
                 counter_severe = counter_severe+1
             else : 
                 counter_non_severe=counter_non_severe+1
+            #If no severe injuries happend, count it as non sever
+            
     return(counter_severe,counter_non_severe)
-
+    #the function return both counter under form of integers
+    
 #BODY
 ############################################################################################
 st.title("Route Map : insert starting and ending point")# title
@@ -317,23 +308,29 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        
 #MID POINT GENERATION
 ################################################################################
-       
-       mid_point_mod_1=[]
-       mid_point_mod_2=[]
        mid_point=route_coords_list[len(route_coords_list)//2]
+       #create the mid point from where the alternative route will pass, it is just the mid point of the original route.
        
        mid_point_mod = offset_midpoint(route_coords_list,distance_km=distance_main_route_km * 0.28)
-       mid_point_mod_1=[mid_point_mod[0]]
-       mid_point_mod_2=[mid_point_mod[1]]
+       #call to offset function. This function trasalte perpendicularly the mid point with respect to the main route by a factor of percentage of total
+       #length. 28% of total length is a parameter choosen by us after doing many empirical testing, it is a good compromise to have alternative and meaningful routes.
+       
+       mid_point_mod_1=mid_point_mod[0]
+       mid_point_mod_2=mid_point_mod[1]
+       #the offset function calulates 2 differtn midpoints, by applying opposite transaltions, here the list is decupled
        
     #GENERATION OF 2 ALTERNATIVE ROUTES       
        route_coordinates_1=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_1)
        route_coordinates_2=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_2)
+       #call to OSRM where we ask him to provide with 2 alternative routes, each of them has to pass from modifed one mid point
+       
        route_coords_list_1 = route_coordinates_1["routes"][0]["geometry"]["coordinates"]
        route_coords_list_2 = route_coordinates_2["routes"][0]["geometry"]["coordinates"]
+       #OSRM answer always with a json file, since we are interested in coordiantes we have to access in this way
        
-       #save routes here, streamlit rerun every time a button is pressed, thereby if we not save them somewhere, streamlit will forget the routes 
+      
        st.session_state["routes"] = [route_coords_list, route_coords_list_1,route_coords_list_2] 
+       #save routes here, streamlit rerun every time a button is pressed, thereby if we not save them somewhere, streamlit will forget the routes 
 
 
 #################################################################################
@@ -375,17 +372,18 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
 #import data frame downloaded from : https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.unfaelle-personenschaeden_alle/items/unfaelle-personenschaeden_alle?.asset=asset-unfaelle-personenschaeden_alle_4326-json-zip
 #NOTE : data frame contains only information about incidentes with injuries to persons 
     df = pd.read_json(r"C:\Users\andre\OneDrive\Desktop\dati\data.json")
-    all_incidents_feautures = df["features"][:1000]
+    all_incidents_feautures = df["features"][:1000]# select only first 1000 incidents (the data frame has more than 267 000)
    
 #extract all the incidents locations in format [[lat, lon],[lat,lon],...[lat,lon]]
     list_of_coords_incidents = []
-    for i in range(0,len(df["features"][:1000])) : 
+    for i in range(0,len(df["features"][:1000])) :
+        #run only for first 1000 incidents (for testing purposes is better to run less data) if you want to run with full data just remove [:1000] here and above (8gb of ram at least)
             list_of_coords_incidents.append(df["features"][i]["geometry"]["coordinates"])
 
     
-#Call the function incidents finder and pass to it every route and obtain for each one the number of route's point in the vicinity of an incident :
-#incidents_on_route, which is a list of 3 integer. Then tracker_list is a list that contains 3 array of booleans, each of them are associated with 
-#incidents happend on that specific route   
+    #Call the function incidents finder and pass to it every route and obtain for each one the number of route's point in the vicinity of an incident :
+    #incidents_on_route, which is a list of 3 integer. Then tracker_list is a list that contains 3 array of booleans, each of them are associated with 
+    #incidents happend on that specific route   
     point_on_route_near_incident= []
     tracker_list=[]
     for p in [inside_main, inside_alt_1, inside_alt_2]:
@@ -397,6 +395,7 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
     risky_index=[]
     for i in range(0,3) : 
         risky_index.append(point_on_route_near_incident[i]/len(inside_list[i])*100)
+    # risky index obtained by dividing the number of route points that are near to at least 1 incident by the total number of point of the route in switzerland
     
     st.session_state["index"]= risky_index
     
@@ -406,12 +405,19 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
     for t in tracker_list:
         incident_on_route_list.append(incidents_on_route(list_of_coords_incidents,t))
         
+        
+#Injuries counter that ibtaiun results from respective function
     injuries_counter_list=[]    
     for z in tracker_list : 
+    
+        #since every tracker is associated with a route, we can pass tracker and filter for incidents near the specific route
         injuries=injuries_counter(z,all_incidents_feautures)
-        injuries_counter_list.append(injuries)
-    st.session_state["injuries"] = injuries_counter_list
         
+        injuries_counter_list.append(injuries)
+        #since we have 3 routes and therefore 3 array tracker, we will have a lsit that contains severe and non severe injuries for each route
+        
+    st.session_state["injuries"] = injuries_counter_list
+    #injuries are saved here, every time we press a button the values are not cancelled   
     
     
 
@@ -440,8 +446,8 @@ if "routes" in st.session_state:
     visualization(routes_to_show)
     
     
-    
-
+#BAR CHART FOR INCIDENTS AND INJURIES'S SEVERITY
+###############################################################################
 routes = ["Main", "Alt 1", "Alt 2"]
 
 n_severe = [g for g, n in st.session_state["injuries"]]
@@ -471,7 +477,7 @@ ax.legend()
 plt.tight_layout()
 
 st.pyplot(fig)
-
+###############################################################################
 
 st.write(f"the main route has a risky index of {st.session_state['index'][0]}%")
 st.write(f"the 1° alternative has a risky index of {st.session_state['index'][1]}%")  
@@ -479,4 +485,4 @@ st.write(f"the 2° alternative has a risky index of {st.session_state['index'][2
  
 
  
-
+    
