@@ -62,7 +62,7 @@ def route(start_point_coordinates, end_point_coordinates, mid_point=None):
 ##############################################################################################
 
 
-#MID POINT TRANSALTION 90° RESPECT THE MAIN ROUTE 
+#MID POINT TRANSALTION 90° RESPECT THE MAIN ROUTE (developed with claude help)
 ##############################################################################################
 def offset_midpoint(route_coords_list, distance_km):
     R=6371000  # Earth radius in meters
@@ -166,7 +166,7 @@ def split_route(coords):
 ###########################################################################################
 
 #FIND INCIDENTS ON THE ROUTE GIVE THE ROUTE
-#NOTE : WE USE ONLY SWISS'S POINTS OF THE ROUTE (INSIDE)
+#NOTE : WE USE ONLY SWISS'S POINTS OF THE ROUTE (INSIDE) ()
 ############################################################################################
 def route_points_near_incidents_finder(inside_points,incident_points) : 
     
@@ -251,6 +251,45 @@ def injuries_counter (tracker,all_incidents_features) :
     return(counter_severe,counter_non_severe)
     #the function return both counter under form of integers
     
+#FUNCTION THAT CALCULATES NUMBER OF INCIDENTS ON EVERY ROUTE BY GROUPING THEM IN MONTHS 
+###########################################################################################
+def incidents_by_month(tracker, all_incidents_features) :
+    month_inc_list=[0] * 12 
+    #create a list with 12 positions, each position will be fulfilled with number of incidets in the route's vicinity in that month 
+    
+    for i in range(0,len(all_incidents_features)) : 
+        if tracker [i] == True : 
+    #Do the same thing as before for searching for incident in the routes vicinity
+            
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="January" : 
+                month_inc_list[0]=month_inc_list[0]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="February" : 
+                month_inc_list[1]=month_inc_list[1]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="March" : 
+                month_inc_list[2]=month_inc_list[2]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="April" : 
+                month_inc_list[3]=month_inc_list[3]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="May" : 
+                month_inc_list[4]=month_inc_list[4]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="June" : 
+                month_inc_list[5]=month_inc_list[5]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="July" : 
+                month_inc_list[6]=month_inc_list[6]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="August" : 
+                month_inc_list[7]=month_inc_list[7]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="September" : 
+                month_inc_list[8]=month_inc_list[8]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="October" : 
+                month_inc_list[9]=month_inc_list[9]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="November" : 
+                month_inc_list[10]=month_inc_list[10]+1
+            if all_incidents_features[i]["properties"]['AccidentMonth_en']=="December" : 
+                month_inc_list[11]=month_inc_list[11]+1
+            #Whenever the tracker is True, go to the same index position inthe list of all incidentes, check in which month it happend, add it in the list    
+            
+    return(month_inc_list)
+###########################################################################################    
+      
 #BODY
 ############################################################################################
 st.title("Route Map : insert starting and ending point")# title
@@ -372,11 +411,11 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
 #import data frame downloaded from : https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.unfaelle-personenschaeden_alle/items/unfaelle-personenschaeden_alle?.asset=asset-unfaelle-personenschaeden_alle_4326-json-zip
 #NOTE : data frame contains only information about incidentes with injuries to persons 
     df = pd.read_json(r"C:\Users\andre\OneDrive\Desktop\dati\data.json")
-    all_incidents_feautures = df["features"][:1000]# select only first 1000 incidents (the data frame has more than 267 000)
+    all_incidents_feautures = df["features"]# select only first 1000 incidents (the data frame has more than 267 000)
    
 #extract all the incidents locations in format [[lat, lon],[lat,lon],...[lat,lon]]
     list_of_coords_incidents = []
-    for i in range(0,len(df["features"][:1000])) :
+    for i in range(0,len(df["features"])) :
         #run only for first 1000 incidents (for testing purposes is better to run less data) if you want to run with full data just remove [:1000] here and above (8gb of ram at least)
             list_of_coords_incidents.append(df["features"][i]["geometry"]["coordinates"])
 
@@ -396,8 +435,8 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
     for i in range(0,3) : 
         risky_index.append(point_on_route_near_incident[i]/len(inside_list[i])*100)
     # risky index obtained by dividing the number of route points that are near to at least 1 incident by the total number of point of the route in switzerland
-    
     st.session_state["index"]= risky_index
+    
     
 #call the function incidents_on_route and passing the tracker of each route and the same list of incidentes, store the result in the list : " incident_on_route_list".
 #This list will contain 3 lists, one for each route.
@@ -418,6 +457,16 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
         
     st.session_state["injuries"] = injuries_counter_list
     #injuries are saved here, every time we press a button the values are not cancelled   
+    
+    
+#call the function for the incidents in months
+    indiincidents_by_month_list= [] 
+    for i in tracker_list : 
+        indiincidents_by_month_list.append(incidents_by_month(i,all_incidents_feautures))
+        
+    #Save result in session state    
+    st.session_state["months"]=indiincidents_by_month_list
+        
     
     
 
@@ -446,42 +495,69 @@ if "routes" in st.session_state:
     visualization(routes_to_show)
     
     
-#BAR CHART FOR INCIDENTS AND INJURIES'S SEVERITY
+#BAR CHART FOR INCIDENTS AND INJURIES'S SEVERITY (claude)
 ###############################################################################
 routes = ["Main", "Alt 1", "Alt 2"]
 
-n_severe = [g for g, n in st.session_state["injuries"]]
-n_not_severe = [n for g, n in st.session_state["injuries"]]
-tot_injuries = [g + n for g, n in st.session_state["injuries"]]
+if "injuries" in st.session_state:
+   
+    n_severe = [g for g, n in st.session_state["injuries"]]
+    n_not_severe = [n for g, n in st.session_state["injuries"]]
+    tot_injuries = [g + n for g, n in st.session_state["injuries"]]
 
-fig, ax = plt.subplots(figsize=(7, 5))
+    fig, ax = plt.subplots(figsize=(7, 5))
 
-ax.bar(routes, n_not_severe, label="Non-severe injuries", color="#f0b429")
-ax.bar(routes, n_severe, bottom=n_not_severe, label="Severe injuries", color="#d64545")
+    ax.bar(routes, n_not_severe, label="Non-severe injuries", color="#f0b429")
+    ax.bar(routes, n_severe, bottom=n_not_severe, label="Severe injuries", color="#d64545")
 
 # totale sopra ogni barra
-for i, tot in enumerate(tot_injuries):
-    ax.text(i, tot, str(tot), ha="center", va="bottom", fontweight="bold")
+    for i, tot in enumerate(tot_injuries):
+        ax.text(i, tot, str(tot), ha="center", va="bottom", fontweight="bold")
 
 # numeri dentro i segmenti
-for i, (g, n) in enumerate(zip(n_severe, n_not_severe)):
-    if n > 0:
-        ax.text(i, n / 2, str(n), ha="center", va="center", color="black")
-    if g > 0:
-        ax.text(i, n + g / 2, str(g), ha="center", va="center", color="white")
+    for i, (g, n) in enumerate(zip(n_severe, n_not_severe)):
+        if n > 0:
+            ax.text(i, n / 2, str(n), ha="center", va="center", color="black")
+            if g > 0:
+                ax.text(i, n + g / 2, str(g), ha="center", va="center", color="white")
 
-ax.set_ylabel("Number of incidents")
-ax.set_title("Incidents in routes' vicinity")
-ax.set_ylim(0, max(tot_injuries) * 1.15 if max(tot_injuries) > 0 else 1)
-ax.legend()
-plt.tight_layout()
+    ax.set_ylabel("Number of incidents")
+    ax.set_title("Incidents in routes' vicinity")
+    ax.set_ylim(0, max(tot_injuries) * 1.15 if max(tot_injuries) > 0 else 1)
+    ax.legend()
+    plt.tight_layout()
 
-st.pyplot(fig)
+    st.pyplot(fig)
 ###############################################################################
 
-st.write(f"the main route has a risky index of {st.session_state['index'][0]}%")
-st.write(f"the 1° alternative has a risky index of {st.session_state['index'][1]}%")  
-st.write(f"the 2° alternative has a risky index of {st.session_state['index'][2]}%") 
+#CHART OF INCIDENTS BY MOINTH (claude)
+###############################################################################
+
+if "months" in st.session_state:
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    route_names = ["Main route", "Alternative 1", "Alternative 2"]
+    colors = ["blue", "red", "green"]      # gli stessi colori della mappa
+
+    fig, ax = plt.subplots(figsize=(10, 4.5))
+
+    for name, color, values in zip(route_names, colors, st.session_state["months"]):
+        ax.plot(month_names, values, marker="o", color=color, label=name)
+
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Number of accidents")
+    ax.set_title("Accidents near each route, by month")
+    ax.grid(alpha=0.3)
+    ax.legend()
+
+    st.pyplot(fig)
+    plt.close(fig)
+###############################################################################
+
+if "index" in st.session_state:
+    st.write(f"the main route has a risky index of {st.session_state['index'][0]}%")
+    st.write(f"the 1° alternative has a risky index of {st.session_state['index'][1]}%")  
+    st.write(f"the 2° alternative has a risky index of {st.session_state['index'][2]}%") 
  
 
  
