@@ -1,5 +1,5 @@
-#import sys
-#print(sys.executable)
+import sys
+print(sys.executable)
 import streamlit as st
 import requests
 import folium
@@ -16,6 +16,12 @@ import matplotlib.pyplot as plt
 
 #cd "C:\Users\andre\OneDrive\Desktop"
 #& "C:\Users\andre\anaconda3\python.exe" -m streamlit run "app.py"
+#df : "C:\Users\andre\OneDrive\Desktop\dati\data.json"
+
+#portatile
+#cd "C:\Users\ANDREA ERBA\OneDrive\Desktop"
+#& "C:\Users\ANDREA ERBA\anaconda3\python.exe" -m streamlit run "app.py"
+#df : "C:\Users\ANDREA ERBA\OneDrive\Desktop\data.json"
 
 #NOMINATIM API HTTPS GET REQUEST
 #############################################################################################
@@ -29,7 +35,7 @@ def geolocalization(x):
             "limit": 2,
         },
         headers={"User-Agent": "swiss-traffic-safety-andrea-app (andreaerba0046@gmail.com)"},
-        timeout=10,
+        timeout=20,
     )
     if req.status_code != 200:
         st.error(f"Nominatim error {req.status_code}: {req.text[:200]}")
@@ -410,12 +416,12 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
 
 #import data frame downloaded from : https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.unfaelle-personenschaeden_alle/items/unfaelle-personenschaeden_alle?.asset=asset-unfaelle-personenschaeden_alle_4326-json-zip
 #NOTE : data frame contains only information about incidentes with injuries to persons 
-    df = pd.read_json(r"C:\Users\andre\OneDrive\Desktop\dati\data.json")
-    all_incidents_feautures = df["features"]# select only first 1000 incidents (the data frame has more than 267 000)
+    df = pd.read_json(r"C:\Users\ANDREA ERBA\OneDrive\Desktop\data.json")
+    all_incidents_feautures = df["features"][:100]# select only first 1000 incidents (the data frame has more than 267 000)
    
 #extract all the incidents locations in format [[lat, lon],[lat,lon],...[lat,lon]]
     list_of_coords_incidents = []
-    for i in range(0,len(df["features"])) :
+    for i in range(0,len(df["features"][:100])) :
         #run only for first 1000 incidents (for testing purposes is better to run less data) if you want to run with full data just remove [:1000] here and above (8gb of ram at least)
             list_of_coords_incidents.append(df["features"][i]["geometry"]["coordinates"])
 
