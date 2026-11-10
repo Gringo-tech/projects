@@ -235,7 +235,7 @@ def incidents_on_route (list_of_coords_incidents,tracker):
     #the function return an integer, which is the number of incidents that happend in the vicinity of a specific route.
 ###########################################################################################    
 
-#FUNCTION THAT COUNT INCIDENT WITH SEVERE INJURIES FOR INCIDENTES ON EACH ROUTE
+#FUNCTION THAT COUNTS INCIDENTS WITH SEVERE INJURIES / NON SEVERE ON EACH ROUTE (auto)
 ##########################################################################################
 def injuries_counter (tracker,all_incidents_features) :
     counter_severe=0 
@@ -256,8 +256,65 @@ def injuries_counter (tracker,all_incidents_features) :
             
     return(counter_severe,counter_non_severe)
     #the function return both counter under form of integers
+################################################################################################
+  
+#FUNCTION THAT FILTER ONLY FOR INCIDENTS THAT ENVOLVE MOTORCYCLES (bikes)  
+################################################################################################
+
+def injuries_counter_b (tracker,all_incidents_features) : 
+    bike_counter_severe=0 
+    bike_counter_n_severe=0
+    for i in range(0,len(all_incidents_features)):
+        if tracker[i]==True : 
+            if all_incidents_features[i]["properties"]["AccidentInvolvingMotorcycle"]=="true" :
+                if all_incidents_features[i]["properties"]["AccidentSeverityCategory_en"]=="Accident with severe injuries" :
+                    bike_counter_severe = bike_counter_severe + 1
+                else : 
+                    bike_counter_n_severe=bike_counter_n_severe + 1
+    return(bike_counter_severe,bike_counter_n_severe)
+###############################################################################################
+
+#FUNCTION THAT CALCULATES NUMBER OF INCIDENTS ON EVERY ROUTE BY GROUPING THEM IN MONTHS (bikes)
+###############################################################################################
+def incidents_by_month_b(tracker, all_incidents_features) :
+    month_inc_list=[0] * 12 
+    #create a list with 12 positions, each position will be fulfilled with number of incidets in the route's vicinity in that month 
     
-#FUNCTION THAT CALCULATES NUMBER OF INCIDENTS ON EVERY ROUTE BY GROUPING THEM IN MONTHS 
+    for i in range(0,len(all_incidents_features)) : 
+        if tracker [i] == True : 
+            if all_incidents_features[i]["properties"]["AccidentInvolvingMotorcycle"]=="true" :
+    #Do the same thing as before for searching for incident in the routes vicinity
+            
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="January" : 
+                    month_inc_list[0]=month_inc_list[0]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="February" : 
+                    month_inc_list[1]=month_inc_list[1]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="March" : 
+                    month_inc_list[2]=month_inc_list[2]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="April" : 
+                    month_inc_list[3]=month_inc_list[3]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="May" : 
+                    month_inc_list[4]=month_inc_list[4]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="June" : 
+                    month_inc_list[5]=month_inc_list[5]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="July" : 
+                    month_inc_list[6]=month_inc_list[6]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="August" : 
+                    month_inc_list[7]=month_inc_list[7]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="September" : 
+                    month_inc_list[8]=month_inc_list[8]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="October" : 
+                    month_inc_list[9]=month_inc_list[9]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="November" : 
+                    month_inc_list[10]=month_inc_list[10]+1
+                if all_incidents_features[i]["properties"]['AccidentMonth_en']=="December" : 
+                    month_inc_list[11]=month_inc_list[11]+1
+            #Whenever the tracker is True, go to the same index position inthe list of all incidentes, check in which month it happend, add it in the list    
+            
+    return(month_inc_list)
+################################################################################################
+
+#FUNCTION THAT CALCULATES NUMBER OF INCIDENTS ON EVERY ROUTE BY GROUPING THEM IN MONTHS (auto) 
 ###########################################################################################
 def incidents_by_month(tracker, all_incidents_features) :
     month_inc_list=[0] * 12 
@@ -316,12 +373,16 @@ with c3:
 if mbike is True : 
     auto=False
     st.write("Selected drive : MotorBike")
+    st.session_state["mbike"]=True
+    st.session_state["auto"]=False
 elif auto is True : 
     mbike=False
     st.write("Selected drive : Auto")
+    st.session_state["mbike"]=False
+    st.session_state["auto"]=True
     
-st.session_state["mbike"]=mbike
-st.session_state["auto"]=auto
+
+
 ###############################################################################################
 
 st.header("Go & Search : ")
@@ -435,25 +496,29 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
     inside_list = [ inside_main,inside_alt_1,inside_alt_2]
     #############################################################################################################################
 
+    #import df
     #############################################################################################################################
     #import data frame downloaded from : https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.unfaelle-personenschaeden_alle/items/unfaelle-personenschaeden_alle?.asset=asset-unfaelle-personenschaeden_alle_4326-json-zip
     #NOTE : data frame contains only information about incidentes with injuries to persons 
     df = pd.read_json(r"C:\Users\ANDREA ERBA\OneDrive\Desktop\data.json")
-    all_incidents_feautures = df["features"][:100]# select only first 1000 incidents (the data frame has more than 267 000)
+    all_incidents_feautures = df["features"][:50000]# select only first 1000 incidents (the data frame has more than 267 000)
     #############################################################################################################################
     
+    #extract list of coordinates of all incidents 
     #############################################################################################################################
     #extract all the incidents locations coordinates in format [[lat, lon],[lat,lon],...[lat,lon]]
     list_of_coords_incidents = []
-    for i in range(0,len(df["features"][:100])) :
+    for i in range(0,len(df["features"][:50000])) :
         #run only for first 1000 incidents (for testing purposes is better to run less data) if you want to run with full data just remove [:1000] here and above (8gb of ram at least)
             list_of_coords_incidents.append(df["features"][i]["geometry"]["coordinates"])
     #############################################################################################################################
-
+    
+    #trackers & number of incidentes for each route (auto incidentes => generic)
     #######################################################################################################################################
     #Call the function route_points_near_incidents_finder_and_tracker and pass to it every inside route and obtain for each the number of route's point in the vicinity of an incident :
     #point_on_route_near_incident, which is a list of 3 integer. Then tracker_list is a list that contains 3 array of booleans, each of them are associated with 
     #incidents happend on that specific inside route   
+    
     point_on_route_near_incident= []
     tracker_list=[]
     for p in [inside_main, inside_alt_1, inside_alt_2]:
@@ -468,6 +533,7 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
         risky_index.append(point_on_route_near_incident[i]/len(inside_list[i])*100)
     # risky index obtained by dividing the number of route points that are near to at least 1 incident by the total number of point of the route in switzerland
     st.session_state["index"]= risky_index
+    #Note : risky index is a generic measure with the purpose of overall danger of a route, we are not differenciating for cars and motorbikes, all incidentes are taken into account
     #############################################################################################################################
     
     #############################################################################################################################
@@ -479,33 +545,51 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
     #this will be used in future to plot on the map the incidents near each route  
     #############################################################################################################################
     
+    #Injuries counter for degree of severity and for selected drive
     #############################################################################################################################
-    #Injuries counter that ibtaiun results from respective function
-    injuries_counter_list=[]    
-    for z in tracker_list : 
-    
-        #since every tracker is associated with a route, we can pass tracker and filter for incidents near the specific route
-        injuries=injuries_counter(z,all_incidents_feautures)
+    if st.session_state["auto"] is True :   
+        injuries_counter_list=[]    
+        for z in tracker_list : 
+            #since every tracker is associated with a route, we can pass tracker and filter for incidents near the specific route
+            injuries=injuries_counter(z,all_incidents_feautures)
         
-        injuries_counter_list.append(injuries)
-        #since we have 3 routes and therefore 3 array tracker, we will have a lsit that contains severe and non severe injuries for each route
+            injuries_counter_list.append(injuries)
+            #since we have 3 routes and therefore 3 array tracker, we will have a lsit that contains severe and non severe injuries for each route
         
-    st.session_state["injuries"] = injuries_counter_list
-    #injuries are saved here, every time we press a button the values are not cancelled   
+            st.session_state["injuries"] = injuries_counter_list
+            
+            #injuries are saved here, every time we press a button the values are not cancelled   
+    elif st.session_state["mbike"] is True : 
+        injuries_counter_list=[]    
+        for z in tracker_list : 
+            #since every tracker is associated with a route, we can pass tracker and filter for incidents near the specific route
+            injuries=injuries_counter_b(z,all_incidents_feautures)
+        
+            injuries_counter_list.append(injuries)
+            #since we have 3 routes and therefore 3 array tracker, we will have a lsit that contains severe and non severe injuries for each route
+        
+            st.session_state["injuries"] = injuries_counter_list
+        
+        
     #############################################################################################################################
-    
-    #############################################################################################################################
-    #call the function for the incidents in months
-    indiincidents_by_month_list= [] 
-    for i in tracker_list : 
-        indiincidents_by_month_list.append(incidents_by_month(i,all_incidents_feautures))
+    #call the function for the incidents in months, differenciated for selected drive
+    if st.session_state["auto"] is True :
+        incidents_by_month_list= [] 
+        for i in tracker_list : 
+            incidents_by_month_list.append(incidents_by_month(i,all_incidents_feautures))
         
-    #Save result in session state    
-    st.session_state["months"]=indiincidents_by_month_list
-    #############################################################################################################################   
-    
-    
-
+            #Save result in session state    
+            st.session_state["months"]=incidents_by_month_list
+    #############################################################################################################################      
+    elif st.session_state["mbike"] is True : 
+        incidents_by_month_list= [] 
+        for i in tracker_list : 
+            incidents_by_month_list.append(incidents_by_month_b(i,all_incidents_feautures))
+        
+            #Save result in session state    
+            st.session_state["months"]=incidents_by_month_list
+    #############################################################################################################################       
+            
 #VISUALIZE ROUTES BUTTONS
 ################################################################################
 colors = ["blue", "red", "green"]
@@ -557,8 +641,12 @@ if "injuries" in st.session_state:
             if g > 0:
                 ax.text(i, n + g / 2, str(g), ha="center", va="center", color="white")
 
-    ax.set_ylabel("Number of incidents")
-    ax.set_title("Incidents in routes' vicinity")
+    if st.session_state["mbike"] is True : 
+        ax.set_ylabel("Number of incidents involving MotorBikes")
+        ax.set_title("Incidents involving MotorBikes in routes' vicinity")
+    else : 
+        ax.set_ylabel("Number of incidents")
+        ax.set_title("Incidents in routes' vicinity")
     ax.set_ylim(0, max(tot_injuries) * 1.15 if max(tot_injuries) > 0 else 1)
     ax.legend()
     plt.tight_layout()
@@ -581,8 +669,15 @@ if "months" in st.session_state:
         ax.plot(month_names, values, marker="o", color=color, label=name)
 
     ax.set_xlabel("Month")
-    ax.set_ylabel("Number of accidents")
-    ax.set_title("Accidents near each route, by month")
+    if st.session_state["mbike"] is True :
+        ax.set_ylabel("Number of incidents involving MotorBikes")
+    else :
+        ax.set_ylabel("Number of incidents")
+    
+    if st.session_state["mbike"] is True : 
+        ax.set_title("Incidents involving MotorBikes near each route, by month")
+    else : 
+        ax.set_title("Incidents near each route, by month")
     ax.grid(alpha=0.3)
     ax.legend()
 
