@@ -300,14 +300,33 @@ def incidents_by_month(tracker, all_incidents_features) :
 ############################################################################################
 st.title("Route Map : insert starting and ending point")# title
 
-
 start_point=st.text_input("starting point") #input of statrting point (str)
 end_point = st.text_input("ending point") #input of ending point (str)
 list_point = [start_point,end_point]
 
-left,center,right=st.columns([1,1,1])# set up columns 
+#vehicle selection
+#################################################################################################
+st.header("Select your drive : ")
+c1,c2,c3,c4= st.columns([1,1,1,1])
+with c2: 
+    mbike=st.button("MotorBike",use_container_width=True)
+with c3:
+    auto=st.button("Auto",use_container_width=True)
 
-with center : 
+if mbike is True : 
+    auto=False
+    st.write("Selected drive : MotorBike")
+elif auto is True : 
+    mbike=False
+    st.write("Selected drive : Auto")
+    
+st.session_state["mbike"]=mbike
+st.session_state["auto"]=auto
+###############################################################################################
+
+st.header("Go & Search : ")
+c1,c2,c3=st.columns([1,1,1])# set up columns 
+with c2 : 
     done = st.button("done",use_container_width=True)#assign button "done" a central poisition
     
 
@@ -577,7 +596,6 @@ if "index" in st.session_state:
     st.write(f"the 2° alternative has a risky index of {st.session_state['index'][2]}%") 
  
 
- 
     
 
 
