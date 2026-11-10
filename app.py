@@ -1,5 +1,5 @@
-import sys
-print(sys.executable)
+#import sys
+#print(sys.executable)
 import streamlit as st
 import requests
 import folium
@@ -215,15 +215,15 @@ def route_points_near_incidents_finder(inside_points,incident_points) :
     #from the dataset of incidentes the specific incidents for the specific route in order to calcualte other relevant informations.
 ############################################################################################
 
-#FUNCTION THAT SELECT INCIDENTS ON SPECIFIC ROUTE
+#FUNCTION THAT SELECT INCIDENTS ON SPECIFIC ROUTE (to use if in future we want to plot the incidents on the map, by now is useless)
 ############################################################################################
 def incidents_on_route (list_of_coords_incidents,tracker):
-    incident_on_route=[]
+    incidents_on_route_coords=[]
     #create an empty list that will be then fulfilled 
     
     for i in range(0,len(list_of_coords_incidents)) : 
         if tracker[i]==True : 
-            incident_on_route.append( list_of_coords_incidents[i])
+            incidents_on_route_coords.append( list_of_coords_incidents[i])
     #with a for loop we can go through all points in the list of incidents
     #NOTE : the list of incidents contains all incidents in switzerland, but since we are interested only to the incidents that are near our routes, we have to filter with the tracker
     #The purpose of the tracker is defined in the funciton above. 
@@ -231,7 +231,7 @@ def incidents_on_route (list_of_coords_incidents,tracker):
     #If the value of the tracker in such position is true, it means that the corresponding incident in the incident list is close to the route, therefore counted.
     #NOTE : tracker is a list of array, the list contains 3 array of booleans, one for each route.
     
-    return(incident_on_route)
+    return(incidents_on_route_coords)
     #the function return an integer, which is the number of incidents that happend in the vicinity of a specific route.
 ###########################################################################################    
 
@@ -427,7 +427,7 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
 
     
     #Call the function incidents finder and pass to it every route and obtain for each one the number of route's point in the vicinity of an incident :
-    #incidents_on_route, which is a list of 3 integer. Then tracker_list is a list that contains 3 array of booleans, each of them are associated with 
+    #point_on_route_near_incident, which is a list of 3 integer. Then tracker_list is a list that contains 3 array of booleans, each of them are associated with 
     #incidents happend on that specific route   
     point_on_route_near_incident= []
     tracker_list=[]
@@ -444,14 +444,14 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
     st.session_state["index"]= risky_index
     
     
-#call the function incidents_on_route and passing the tracker of each route and the same list of incidentes, store the result in the list : " incident_on_route_list".
-#This list will contain 3 lists, one for each route.
-    incident_on_route_list=[]
+    #call the function incidents_on_route and passing the tracker of each route and the same list of incidentes coordinates, store the result in the list : " incident_on_route_list_coords".
+    #This list will contain 3 lists of coordinates, one for each route.
+    incident_on_route_list_coords=[]
     for t in tracker_list:
-        incident_on_route_list.append(incidents_on_route(list_of_coords_incidents,t))
+        incident_on_route_list_coords.append(incidents_on_route(list_of_coords_incidents,t))
+    #this will be used in future to plot on the map the incidents near each route  
         
-        
-#Injuries counter that ibtaiun results from respective function
+    #Injuries counter that ibtaiun results from respective function
     injuries_counter_list=[]    
     for z in tracker_list : 
     
@@ -465,7 +465,7 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
     #injuries are saved here, every time we press a button the values are not cancelled   
     
     
-#call the function for the incidents in months
+    #call the function for the incidents in months
     indiincidents_by_month_list= [] 
     for i in tracker_list : 
         indiincidents_by_month_list.append(incidents_by_month(i,all_incidents_feautures))
@@ -568,3 +568,23 @@ if "index" in st.session_state:
 
  
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
