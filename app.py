@@ -174,7 +174,7 @@ def split_route(coords):
 #FIND INCIDENTS ON THE ROUTE GIVE THE ROUTE
 #NOTE : WE USE ONLY SWISS'S POINTS OF THE ROUTE (INSIDE) ()
 ############################################################################################
-def route_points_near_incidents_finder(inside_points,incident_points) : 
+def route_points_near_incidents_finder_and_tracker(inside_points,incident_points) : 
     
     ns_buffer = 0.000449
     eo_buffer = 0.000655
@@ -331,9 +331,7 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        end_point_coordinates = [float(dict_end_point["lat"]),float(dict_end_point["lon"])]
        start_point_coordinates = [float(dict_start_point["lat"]),float(dict_start_point["lon"])]
        #extracting lat and long coordinates and stored as float in a list
-       
-       #st.write(f'coordinates of start point are :  {start_point_coordinates}')
-       #st.write(f'coordinates of end point are :  {end_point_coordinates}')
+     
        
        route_coordinates=route(start_point_coordinates ,end_point_coordinates)
        #recall route function, store the API answer here
@@ -351,8 +349,8 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        #st.write(distance_main_route)
              
        
-#MID POINT GENERATION
-################################################################################
+       #MID POINT GENERATION
+    ################################################################################
        mid_point=route_coords_list[len(route_coords_list)//2]
        #create the mid point from where the alternative route will pass, it is just the mid point of the original route.
        
@@ -363,8 +361,10 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
        mid_point_mod_1=mid_point_mod[0]
        mid_point_mod_2=mid_point_mod[1]
        #the offset function calulates 2 differtn midpoints, by applying opposite transaltions, here the list is decupled
-       
-    #GENERATION OF 2 ALTERNATIVE ROUTES       
+    #############################################################################################################################
+    
+    #############################################################################################################################
+       #GENERATION OF 2 ALTERNATIVE ROUTES       
        route_coordinates_1=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_1)
        route_coordinates_2=route(start_point_coordinates ,end_point_coordinates, mid_point_mod_2)
        #call to OSRM where we ask him to provide with 2 alternative routes, each of them has to pass from modifed one mid point
@@ -376,10 +376,10 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
       
        st.session_state["routes"] = [route_coords_list, route_coords_list_1,route_coords_list_2] 
        #save routes here, streamlit rerun every time a button is pressed, thereby if we not save them somewhere, streamlit will forget the routes 
+    #############################################################################################################################
 
-
-#################################################################################
-#define a polygon which is an approximation of switzerland, if a point is outside of the polygon => not in switzerland 
+    #################################################################################
+    #define a polygon which is an approximation of switzerland, if a point is outside of the polygon => not in switzerland 
     switzerland = Polygon([
                 (5.95, 46.13),   # Geneva ovest
                 (6.80, 47.35),   # Giura nord-ovest
@@ -395,62 +395,72 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
                                 ])
 
     ch = prep(switzerland) 
-#make it faster, run the polygon before calling the function that divides swiss points from foreigner points
+    #make it faster, run the polygon before calling the function that divides swiss points from foreigner points
 
     inside_outside = list(map(split_route,st.session_state["routes"]))
-#create a list of lists that has the following structure : 
-#[[points inside swiss for main route , points outside for main route],[points inside swiss for alt 1 , points outside for alt 1 ],[points inside for alt 2 , points outside for alt 2 ]]
-#now we have a list that contains, for each route in a fixed order (main , alt 1 , alt2), the respective lists with inside and outside points
+    #create a list of lists that has the following structure : 
+    #[[points inside swiss for main route , points outside for main route],[points inside swiss for alt 1 , points outside for alt 1 ],[points inside for alt 2 , points outside for alt 2 ]]
+    #now we have a list that contains, for each route in a fixed order (main , alt 1 , alt2), the respective lists with inside and outside points
 
-#extract inside and outside points for each route (main , alt 1 , alt 2)
+    #extract inside and outside points for each route (main , alt 1 , alt 2)
+    
     inside_main= inside_outside[0][0]
-#outside_main=inside_outside[0][1]
+    #outside_main=inside_outside[0][1]
 
     inside_alt_1=inside_outside[1][0]
-#outside_alt_1 =inside_outside[1][1]
+    #outside_alt_1 =inside_outside[1][1]
 
     inside_alt_2= inside_outside[2][0]
-#outside_alt_2 = inside_outside[2][1]
+    #outside_alt_2 = inside_outside[2][1]
 
     inside_list = [ inside_main,inside_alt_1,inside_alt_2]
+    #############################################################################################################################
 
-#import data frame downloaded from : https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.unfaelle-personenschaeden_alle/items/unfaelle-personenschaeden_alle?.asset=asset-unfaelle-personenschaeden_alle_4326-json-zip
-#NOTE : data frame contains only information about incidentes with injuries to persons 
+    #############################################################################################################################
+    #import data frame downloaded from : https://data.geo.admin.ch/browser/index.html#/collections/ch.astra.unfaelle-personenschaeden_alle/items/unfaelle-personenschaeden_alle?.asset=asset-unfaelle-personenschaeden_alle_4326-json-zip
+    #NOTE : data frame contains only information about incidentes with injuries to persons 
     df = pd.read_json(r"C:\Users\ANDREA ERBA\OneDrive\Desktop\data.json")
     all_incidents_feautures = df["features"][:100]# select only first 1000 incidents (the data frame has more than 267 000)
-   
-#extract all the incidents locations in format [[lat, lon],[lat,lon],...[lat,lon]]
+    #############################################################################################################################
+    
+    #############################################################################################################################
+    #extract all the incidents locations coordinates in format [[lat, lon],[lat,lon],...[lat,lon]]
     list_of_coords_incidents = []
     for i in range(0,len(df["features"][:100])) :
         #run only for first 1000 incidents (for testing purposes is better to run less data) if you want to run with full data just remove [:1000] here and above (8gb of ram at least)
             list_of_coords_incidents.append(df["features"][i]["geometry"]["coordinates"])
+    #############################################################################################################################
 
-    
-    #Call the function incidents finder and pass to it every route and obtain for each one the number of route's point in the vicinity of an incident :
+    #######################################################################################################################################
+    #Call the function route_points_near_incidents_finder_and_tracker and pass to it every inside route and obtain for each the number of route's point in the vicinity of an incident :
     #point_on_route_near_incident, which is a list of 3 integer. Then tracker_list is a list that contains 3 array of booleans, each of them are associated with 
-    #incidents happend on that specific route   
+    #incidents happend on that specific inside route   
     point_on_route_near_incident= []
     tracker_list=[]
     for p in [inside_main, inside_alt_1, inside_alt_2]:
-                incidents,tracker = route_points_near_incidents_finder(p, list_of_coords_incidents)
+                incidents,tracker = route_points_near_incidents_finder_and_tracker(p, list_of_coords_incidents)
                 point_on_route_near_incident.append(incidents)
                 tracker_list.append(tracker)
+    #############################################################################################################################
     
-    
+    #############################################################################################################################
     risky_index=[]
     for i in range(0,3) : 
         risky_index.append(point_on_route_near_incident[i]/len(inside_list[i])*100)
     # risky index obtained by dividing the number of route points that are near to at least 1 incident by the total number of point of the route in switzerland
     st.session_state["index"]= risky_index
+    #############################################################################################################################
     
-    
+    #############################################################################################################################
     #call the function incidents_on_route and passing the tracker of each route and the same list of incidentes coordinates, store the result in the list : " incident_on_route_list_coords".
     #This list will contain 3 lists of coordinates, one for each route.
     incident_on_route_list_coords=[]
     for t in tracker_list:
         incident_on_route_list_coords.append(incidents_on_route(list_of_coords_incidents,t))
     #this will be used in future to plot on the map the incidents near each route  
-        
+    #############################################################################################################################
+    
+    #############################################################################################################################
     #Injuries counter that ibtaiun results from respective function
     injuries_counter_list=[]    
     for z in tracker_list : 
@@ -463,8 +473,9 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
         
     st.session_state["injuries"] = injuries_counter_list
     #injuries are saved here, every time we press a button the values are not cancelled   
+    #############################################################################################################################
     
-    
+    #############################################################################################################################
     #call the function for the incidents in months
     indiincidents_by_month_list= [] 
     for i in tracker_list : 
@@ -472,7 +483,7 @@ if done : #if done = true => user pressed it (he has inserted 2 locations)
         
     #Save result in session state    
     st.session_state["months"]=indiincidents_by_month_list
-        
+    #############################################################################################################################   
     
     
 
