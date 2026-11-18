@@ -1,0 +1,73 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.ensemble import RandomForestRegressor
+df = pd.read_json(r"C:\Users\ANDREA ERBA\OneDrive\Desktop\data.json") #replace with your directory
+incidents = df["features"]
+
+inc_df = pd.DataFrame({
+    "lon" : [i["geometry"]["coordinates"][0] for i in incidents],
+    "lat" : [i["geometry"]["coordinates"][1] for i in incidents],
+    "year": [i["properties"]["AccidentYear"] for i in incidents]
+    })
+
+cells_dict_training_1 = {}
+cells_dict_training_2 = {}
+
+for i in inc_df.itertuples() : 
+    if int(i[3])<=2019 : 
+        cx =int( i[1]/0.0066)
+        cy =int( i[2]/0.0045)
+        cell = (cx,cy)
+        cells_dict_training_1[cell] = cells_dict_training_1.get(cell,0)+1
+    else : 
+        cx =int( i[1]/0.0066)
+        cy =int( i[2]/0.0045)
+        cell = (cx,cy)
+        cells_dict_training_2[cell] = cells_dict_training_2.get(cell,0)+1
+
+
+all_cells = set(cells_dict_training_1) | set(cells_dict_training_2) 
+
+X = np.array([[cells_dict_training_1.get(c, 0)] for c in all_cells])
+Y = np.array([cells_dict_training_2.get(c, 0) for c in all_cells])
+
+
+groups = [(c[0] // 30) * 10000 + (c[1] // 45) for c in all_cells]
+
+splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+train_idx, test_idx = next(splitter.split(X, Y, groups))
+
+model = RandomForestRegressor(n_estimators=200, min_samples_leaf=5,
+                              n_jobs=-1, random_state=0)
+
+model.fit(X[train_idx], Y[train_idx]) 
+
+
+from sklearn.metrics import mean_absolute_error
+
+pred = model.predict(X[test_idx])
+
+# baseline: "il dopo sarà come il prima", riscalato per la durata dei periodi
+n_years_before = inc_df[inc_df["year"].astype(int) <= 2019]["year"].nunique()
+n_years_after  = inc_df[inc_df["year"].astype(int) >= 2020]["year"].nunique()
+baseline = X[test_idx, 0] * (n_years_after / n_years_before)
+
+print("Errore modello :", mean_absolute_error(Y[test_idx], pred))
+print("Errore baseline:", mean_absolute_error(Y[test_idx], baseline))
+
+
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+ax.scatter(Y[test_idx], pred, alpha=0.3)
+massimo = max(Y[test_idx].max(), pred.max())
+ax.plot([0, massimo], [0, massimo], color="red")     # la diagonale "previsione perfetta"
+ax.set_xlabel("Real accidents")
+ax.set_ylabel("Predicted accidents")
+ax.set_xscale("symlog")
+ax.set_yscale("symlog")
+plt.show()
+        
+
+
